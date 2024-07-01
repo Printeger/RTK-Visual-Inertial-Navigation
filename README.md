@@ -63,8 +63,7 @@ roslaunch rtk_visual_inertial rtk_visual_inertial_rviz.launch
 ```
 Open another terminal and run the project by:
 ```
-source ~/catkin_ws/devel/setup.bash
-rosrun rtk_visual_inertial rtk_visual_inertial_node src/RTK-Visual-Inertial-Navigation/yaml/SETTING.yaml YOUR_BAG_FOLDER/BAG_NAME.bag ourput.csv
+rosbag play $YOUR_BAG_PATH$
 ```
 YOUR_BAG_FOLDER is the folder where you save our dataset. BAG_NAME is the name of our dataset. SETTING.yaml is the setting for RTK-Visual-Inertial-Navigation. You could use the following settings to perform different types of navigation.
 ```

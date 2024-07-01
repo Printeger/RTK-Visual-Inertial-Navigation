@@ -51,7 +51,7 @@ cv::Mat getImageFromMsg(const sensor_msgs::ImageConstPtr& img_msg) {
         img.encoding = "mono8";
         ptr = cv_bridge::toCvCopy(img, sensor_msgs::image_encodings::MONO8);
     } else
-        ptr = cv_bridge::toCvCopy(img_msg, sensor_msgs::image_encodings::MONO8);
+      ptr = cv_bridge::toCvCopy(img_msg, sensor_msgs::image_encodings::MONO8);
 
     cv::Mat img = ptr->image.clone();
     return img;
@@ -71,185 +71,222 @@ void processoneimage() {
                 img0_buf.pop();
                 printf("throw img0\n");
             } else if (time0 > time1) {
-                img1_buf.pop();
-                printf("throw img1\n");
+              img1_buf.pop();
+              printf("throw img1\n");
             } else {
-                time = img0_buf.front()->header.stamp.toSec();
-                image0 = getImageFromMsg(img0_buf.front());
-                img0_buf.pop();
-                image1 = getImageFromMsg(img1_buf.front());
-                img1_buf.pop();
+              time = img0_buf.front()->header.stamp.toSec();
+              image0 = getImageFromMsg(img0_buf.front());
+              img0_buf.pop();
+              image1 = getImageFromMsg(img1_buf.front());
+              img1_buf.pop();
             }
         }
     } else {
-        if (!img0_buf.empty() ) {
-            time = img0_buf.front()->header.stamp.toSec();
-            image0 = getImageFromMsg(img0_buf.front());
-            img0_buf.pop();
-
-        }
+      if (!img0_buf.empty()) {
+        time = img0_buf.front()->header.stamp.toSec();
+        image0 = getImageFromMsg(img0_buf.front());
+        img0_buf.pop();
+      }
     }
 
     if (!image0.empty())
         swf_optimization->InputImage(time, image0, image1);
 }
 
-void img0_callback(const sensor_msgs::ImageConstPtr& img_msg) {
-    if (img_msg->header.stamp.toSec() < start_timestamp)return;
-    img0_buf.push(img_msg);
-    processoneimage();
+void img0_callback(const sensor_msgs::Image::ConstPtr& img_msg) {
+  if (img_msg->header.stamp.toSec() < start_timestamp) return;
+  img0_buf.push(img_msg);
+  processoneimage();
 }
 
 void img1_callback(const sensor_msgs::ImageConstPtr& img_msg) {
-    if (img_msg->header.stamp.toSec() < start_timestamp)return;
-    img1_buf.push(img_msg);
-    processoneimage();
+  if (img_msg->header.stamp.toSec() < start_timestamp) return;
+  img1_buf.push(img_msg);
+  processoneimage();
 }
-
-
-
 
 void imu_callback(const sensor_msgs::ImuConstPtr& imu_msg) {
-    if (imu_msg->header.stamp.toSec() < start_timestamp - 1)return;
-    static double oldt;
-    double t = imu_msg->header.stamp.toSec();
+  if (imu_msg->header.stamp.toSec() < start_timestamp - 1) return;
+  static double oldt;
+  double t = imu_msg->header.stamp.toSec();
 
-    double dx = imu_msg->linear_acceleration.x;
-    double dy = imu_msg->linear_acceleration.y;
-    double dz = imu_msg->linear_acceleration.z;
-    double rx = imu_msg->angular_velocity.x;
-    double ry = imu_msg->angular_velocity.y;
-    double rz = imu_msg->angular_velocity.z;
-    Vector3d acc(dx, dy, dz);
-    Vector3d gyr(rx, ry, rz);
-    acc = IMUMatrix * acc;
-    gyr = IMUMatrix * gyr;
-    swf_optimization->InputIMU(t, acc, gyr);
-    oldt = t;
+  double dx = imu_msg->linear_acceleration.x;
+  double dy = imu_msg->linear_acceleration.y;
+  double dz = imu_msg->linear_acceleration.z;
+  double rx = imu_msg->angular_velocity.x;
+  double ry = imu_msg->angular_velocity.y;
+  double rz = imu_msg->angular_velocity.z;
+  Vector3d acc(dx, dy, dz);
+  Vector3d gyr(rx, ry, rz);
+  acc = IMUMatrix * acc;
+  gyr = IMUMatrix * gyr;
+  swf_optimization->InputIMU(t, acc, gyr);
+  oldt = t;
 
-    return;
+  return;
 }
 
-void mag_callback(const sensor_msgs::MagneticFieldPtr& mag_msg) {
-    if (mag_msg->header.stamp.toSec() < start_timestamp)return;
-    double t = mag_msg->header.stamp.toSec();
-    double mx = mag_msg->magnetic_field.x * 1e6;
-    double my = mag_msg->magnetic_field.y * 1e6;
-    double mz = mag_msg->magnetic_field.z * 1e6;
-    Vector3d mag(mx, my, mz);
-    mag = MagMatrix * mag + MagVector;
-    swf_optimization->InputMag(t, mag);
+// void mag_callback(const sensor_msgs::MagneticFieldPtr& mag_msg) {
+void mag_callback(const sensor_msgs::MagneticField::ConstPtr& mag_msg) {
+  if (mag_msg->header.stamp.toSec() < start_timestamp) return;
+  double t = mag_msg->header.stamp.toSec();
+  double mx = mag_msg->magnetic_field.x * 1e6;
+  double my = mag_msg->magnetic_field.y * 1e6;
+  double mz = mag_msg->magnetic_field.z * 1e6;
+  Vector3d mag(mx, my, mz);
+  mag = MagMatrix * mag + MagVector;
+  swf_optimization->InputMag(t, mag);
 
-    return;
+  return;
 }
 
+// void mGNSS_callback(const std_msgs::ByteMultiArrayPtr& gnss_msg) {
+void mGNSS_callback(const std_msgs::ByteMultiArray::ConstPtr& gnss_msg) {
+  mea_t gnss_obs;
+  char* rover_c = (char*)(&gnss_obs);
+  memset(rover_c, 0, sizeof(mea_t));
+  for (int i = 0; i < (int)(gnss_msg->data.size()); i++) {
+    rover_c[i] = gnss_msg->data[i];
+  }
+  for (int i = 0; i < gnss_obs.obs_count; i++) {
+    ObsMea* d = gnss_obs.obs_data + i;
+    d->RTK_L[1] = d->SPP_L[1] = 0;
+    d->RTK_P[1] = d->SPP_P[1] = 0;
+  }
 
+  mea_t* rovernew = new (mea_t);
+  memcpy(rovernew, &gnss_obs, sizeof(mea_t));
+  if (rovernew->ros_time < start_timestamp) return;
 
-
-
-
-void mGNSS_callback(const std_msgs::ByteMultiArrayPtr& gnss_msg) {
-
-
-    mea_t gnss_obs;
-    char* rover_c = (char*)(&gnss_obs);
-    memset(rover_c, 0, sizeof(mea_t));
-    for (int i = 0; i < (int)(gnss_msg->data.size()); i++) {
-        rover_c[i] = gnss_msg->data[i];
-    }
-    for (int i = 0; i < gnss_obs.obs_count; i++) {
-        ObsMea* d = gnss_obs.obs_data + i;
-        d->RTK_L[1] = d->SPP_L[1] = 0;
-        d->RTK_P[1] = d->SPP_P[1] = 0;
-
-    }
-
-    mea_t* rovernew = new (mea_t);
-    memcpy(rovernew, &gnss_obs, sizeof(mea_t));
-    if (rovernew->ros_time < start_timestamp)return;
-
-    swf_optimization->InputGnss(rovernew);
-
-
+  swf_optimization->InputGnss(rovernew);
 }
 
 void feature_callback(const sensor_msgs::PointCloudConstPtr& feature_msg) {
-    if (feature_msg->header.stamp.toSec() < start_timestamp)return;
-    static int inputImageCnt;
+  // void feature_callback(const sensor_msgs::PointCloudPtr& feature_msg) {
+  if (feature_msg->header.stamp.toSec() < start_timestamp) return;
+  static int inputImageCnt;
 
-    if (inputImageCnt < AVERAGE_IMAGE) {
-        inputImageCnt++;
-        return;
+  if (inputImageCnt < AVERAGE_IMAGE) {
+    inputImageCnt++;
+    return;
+  }
+  if (USE_IMAGE) {
+    double timestamp = feature_msg->header.stamp.toSec();
+    std::map<int, std::vector<std::pair<int, Eigen::Matrix<double, 7, 1>>>>
+        featureFrame;
+    for (unsigned int i = 0; i < feature_msg->points.size(); i++) {
+      int feature_id = feature_msg->channels[0].values[i];
+      int camera_id = feature_msg->channels[1].values[i];
+      double x = feature_msg->points[i].x;
+      double y = feature_msg->points[i].y;
+      double z = feature_msg->points[i].z;
+      double p_u = feature_msg->channels[2].values[i];
+      double p_v = feature_msg->channels[3].values[i];
+      double velocity_x = feature_msg->channels[4].values[i];
+      double velocity_y = feature_msg->channels[5].values[i];
+      assert(z == 1);
+      Eigen::Matrix<double, 7, 1> xyz_uv_velocity;
+      xyz_uv_velocity << x, y, z, p_u, p_v, velocity_x, velocity_y;
+      featureFrame[feature_id].emplace_back(camera_id, xyz_uv_velocity);
     }
-    if (USE_IMAGE) {
+    swf_optimization->feature_buf.push(make_pair(timestamp, featureFrame));
 
-        double timestamp = feature_msg->header.stamp.toSec();
-        std::map<int, std::vector<std::pair<int, Eigen::Matrix<double, 7, 1>>>> featureFrame;
-        for (unsigned int i = 0; i < feature_msg->points.size(); i++) {
-            int feature_id = feature_msg->channels[0].values[i];
-            int camera_id = feature_msg->channels[1].values[i];
-            double x = feature_msg->points[i].x;
-            double y = feature_msg->points[i].y;
-            double z = feature_msg->points[i].z;
-            double p_u = feature_msg->channels[2].values[i];
-            double p_v = feature_msg->channels[3].values[i];
-            double velocity_x = feature_msg->channels[4].values[i];
-            double velocity_y = feature_msg->channels[5].values[i];
-            assert(z == 1);
-            Eigen::Matrix<double, 7, 1> xyz_uv_velocity;
-            xyz_uv_velocity << x, y, z, p_u, p_v, velocity_x, velocity_y;
-            featureFrame[feature_id].emplace_back(camera_id,  xyz_uv_velocity);
-        }
-        swf_optimization->feature_buf.push(make_pair(timestamp, featureFrame));
-
-        swf_optimization->MeasurementProcess();
-    }
+    swf_optimization->MeasurementProcess();
+  }
 }
 
 int main(int argc, char** argv) {
     ros::init(argc, argv, "rtk_visual_inertial");
-    ros::NodeHandle n("~");
+    ros::NodeHandle nh("~");
     ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Info);
 
-
-
-    string config_file = argv[1];
-    ROS_PATH = argv[2];
-    RESULT_PATH = argv[3];
-
-    printf("config_file: %s\n", argv[1]);
-
+    string config_file;
+    cout << "========== params ==========" << endl;
+    nh.param<string>("/config_file", config_file,
+                     "src/RTK-Visual-Inertial-Navigation/yaml/"
+                     "rtk_visual_inertial_config.yaml");
+    nh.param<string>("/result_path", RESULT_PATH,
+                     "src/RTK-Visual-Inertial-Navigation/res/output.csv");
+    ROS_INFO("config_file = %s", config_file.c_str());
+    ROS_INFO("result_path = %s", RESULT_PATH.c_str());
 
     readParameters(config_file);
     swf_optimization = new SWFOptimization();
     swf_optimization->SetParameter();
 
+    registerPub(nh);
+    cout << "\nIMU_TOPIC: " << IMU_TOPIC << "\nIMAGE0_TOPIC: " << IMAGE0_TOPIC
+         << "\nIMAGE1_TOPIC: " << IMAGE1_TOPIC
+         << "\nFEATURE_TOPIC: " << FEATURE_TOPIC << "\nRTK_TOPIC: " << RTK_TOPIC
+         << "\nMAG_TOPIC: " << MAG_TOPIC << "\nUSE_FEATURE: " << USE_FEATURE
+         << endl;
+    cout << "============================" << endl;
 
-    printf("waiting for image and imu...");
-
-    registerPub(n);
-
-    rosbag::Bag bag;
-    bag.open(ROS_PATH, rosbag::bagmode::Read);
-    rosbag::View view(bag);
-
-    for ( rosbag::View::iterator it = view.begin(); it != view.end(); ++it) {
-        auto m = *it;
-        if (m.getTopic() == IMU_TOPIC) {
-            imu_callback(m.instantiate<sensor_msgs::Imu>());
-        } else if (m.getTopic() == IMAGE0_TOPIC && !USE_FEATURE) {
-            img0_callback(m.instantiate<sensor_msgs::Image>());
-        } else if (m.getTopic() == IMAGE1_TOPIC && !USE_FEATURE) {
-            img1_callback(m.instantiate<sensor_msgs::Image>());
-        } else if (m.getTopic() == RTK_TOPIC) {
-            mGNSS_callback(m.instantiate<std_msgs::ByteMultiArray>());
-        } else if (m.getTopic() == MAG_TOPIC) {
-            mag_callback(m.instantiate<sensor_msgs::MagneticField>());
-        } else if (m.getTopic() == FEATURE_TOPIC && USE_FEATURE) {
-            feature_callback(m.instantiate<sensor_msgs::PointCloud>());
-        }
-        processoneimage();
+    ros::Subscriber sub_imu = nh.subscribe(IMU_TOPIC, 1000, imu_callback);
+    ros::Subscriber sub_rtk =
+        nh.subscribe<std_msgs::ByteMultiArray>(RTK_TOPIC, 1000, mGNSS_callback);
+    ros::Subscriber sub_mag =
+        nh.subscribe<sensor_msgs::MagneticField>(MAG_TOPIC, 1000, mag_callback);
+    ros::Subscriber sub_feature =
+        nh.subscribe(FEATURE_TOPIC, 1000, feature_callback);
+    if (!USE_FEATURE) {
+      ros::Subscriber sub_imu = nh.subscribe(IMU_TOPIC, 1000, imu_callback);
+      ros::Subscriber sub_rtk = nh.subscribe<std_msgs::ByteMultiArray>(
+          RTK_TOPIC, 1000, mGNSS_callback);
+      ros::Subscriber sub_mag = nh.subscribe<sensor_msgs::MagneticField>(
+          MAG_TOPIC, 1000, mag_callback);
+      ros::Subscriber sub_img_0 =
+          nh.subscribe(IMAGE0_TOPIC, 1000, img0_callback);
+      ros::Subscriber sub_img_1 =
+          nh.subscribe(IMAGE1_TOPIC, 1000, img1_callback);
     }
+    // if (!USE_FEATURE) {
+    //   ros::Subscriber sub_img_0 =
+    //       nh.subscribe(IMAGE0_TOPIC, 1000, img0_callback);
+    //   ros::Subscriber sub_img_1 =
+    //       nh.subscribe(IMAGE1_TOPIC, 1000, img1_callback);
+    // } else {
+    //   cout << "use feature " << FEATURE_TOPIC << endl;
+    //   ros::Subscriber sub_feature =
+    //       nh.subscribe(FEATURE_TOPIC, 1000, feature_callback);
+    // }
+    // ros::Subscriber sub_rtk =
+    //     nh.subscribe<std_msgs::ByteMultiArray>(RTK_TOPIC, 1000,
+    //     mGNSS_callback);
+    // ros::Subscriber sub_mag =
+    //     nh.subscribe<sensor_msgs::MagneticField>(MAG_TOPIC, 1000,
+    //     mag_callback);
+    // // processoneimage();
+
+    ros::spin();
+
+    // rosbag::Bag bag;
+    // bag.open(ROS_PATH, rosbag::bagmode::Read);
+    // rosbag::View view(bag);
+
+    // for (rosbag::View::iterator it = view.begin(); it != view.end();
+    // ++it) {
+    //     auto m = *it;
+    //     if (m.getTopic() == IMU_TOPIC) {
+    //         imu_callback(m.instantiate<sensor_msgs::Imu>());
+    //     }
+    //     else if (m.getTopic() == IMAGE0_TOPIC && !USE_FEATURE) {
+    //         img0_callback(m.instantiate<sensor_msgs::Image>());
+    //     }
+    //     else if (m.getTopic() == IMAGE1_TOPIC && !USE_FEATURE) {
+    //         img1_callback(m.instantiate<sensor_msgs::Image>());
+    //     }
+    //     else if (m.getTopic() == RTK_TOPIC) {
+    //         mGNSS_callback(m.instantiate<std_msgs::ByteMultiArray>());
+    //     }
+    //     else if (m.getTopic() == MAG_TOPIC) {
+    //         mag_callback(m.instantiate<sensor_msgs::MagneticField>());
+    //     }
+    //     else if (m.getTopic() == FEATURE_TOPIC && USE_FEATURE) {
+    //         feature_callback(m.instantiate<sensor_msgs::PointCloud>());
+    //     }
+    //     processoneimage();
+    // }
 
     return 0;
 }

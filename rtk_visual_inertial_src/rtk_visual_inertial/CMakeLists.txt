@@ -18,7 +18,7 @@ find_package(catkin REQUIRED COMPONENTS
     rosbag)
     
     
-find_package(OpenCV 3 REQUIRED)
+find_package(OpenCV 3.4.20 REQUIRED)
 include(../../ceres-solver-modified/build/lib/cmake/Ceres/CeresConfig.cmake)
 find_package(Eigen3)
 
@@ -33,6 +33,7 @@ include_directories(
   src/utility/
   src/initial/
   src/feature/
+  /usr/include/yaml-cpp
 )
 
 catkin_package()
@@ -68,7 +69,7 @@ add_library(rtk_visual_inertial_lib
     src/gnss/src/common_function.cpp
     )
     
-target_link_libraries(rtk_visual_inertial_lib ${OpenCV_LIBS} ${catkin_LIBRARIES}  ${CERES_LIBRARIES})
+target_link_libraries(rtk_visual_inertial_lib ${OpenCV_LIBS} ${catkin_LIBRARIES}  ${CERES_LIBRARIES} yaml-cpp)
 
 
 add_executable(rtk_visual_inertial_node src/main3.cpp)

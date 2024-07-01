@@ -161,12 +161,12 @@ void resetpot(const SWFOptimization& swf_optimization, const std_msgs::Header& h
     Ps0 = swf_optimization.Ps[0];
 }
 void pubOdometry(const SWFOptimization& swf_optimization, const std_msgs::Header& header) {
-    Vector3d        Ps[(FEATURE_WINDOW_SIZE + GNSS_WINDOW_SIZE + 1)];
+  Vector3d Ps[(FEATURE_WINDOW_SIZE + GNSS_WINDOW_SIZE + 1)];
 
-
-    for (int i = 0; i < swf_optimization.rover_count + swf_optimization.image_count; i++) {
-        Ps[i] = swf_optimization.Ps[i] - Ps0;
-    }
+  for (int i = 0;
+       i < swf_optimization.rover_count + swf_optimization.image_count; i++) {
+    Ps[i] = swf_optimization.Ps[i] - Ps0;
+  }
     if (swf_optimization.solver_flag == SWFOptimization::SolverFlag::NonLinear) {
         nav_msgs::Odometry odometry;
         odometry.header = header;
@@ -189,6 +189,21 @@ void pubOdometry(const SWFOptimization& swf_optimization, const std_msgs::Header
         odometry.twist.twist.linear.y = tmpv.y();
         odometry.twist.twist.linear.z = tmpv.z();
         pub_odometry.publish(odometry);
+
+        // ================ SAVE ================ //
+        std::string full_path =
+            "/home/mint/ws_rvin/src/RTK-Visual-Inertial-Navigation/res/"
+            "pose.txt";
+        std::ofstream file;
+        file.open(full_path, std::ios::app);
+        if (!file.is_open()) {
+          ROS_ERROR("Failed to open file to write IMU pose data.");
+          return;
+        }
+        file << header.stamp.sec << "." << header.stamp.nsec << " " << tmpP.x()
+             << " " << tmpP.y() << " " << tmpP.z() << " " << tmp_Q.x() << " "
+             << tmp_Q.y() << " " << tmp_Q.z() << " " << tmp_Q.w() << std::endl;
+        file.close();
 
         geometry_msgs::PoseStamped pose_stamped;
         pose_stamped.header = header;

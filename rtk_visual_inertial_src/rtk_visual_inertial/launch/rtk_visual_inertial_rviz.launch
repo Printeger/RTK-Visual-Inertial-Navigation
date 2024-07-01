@@ -1,3 +1,9 @@
 <launch>
+    <param name="config_file" type="string" value="/home/mint/ws_rvin/src/RTK-Visual-Inertial-Navigation/yaml/rtk_visual_inertial_config.yaml" />
+    <param name="result_path" type="string" value="/home/mint/ws_rvin/src/RTK-Visual-Inertial-Navigation/res/output.csv" />
+
+    <node pkg="rtk_visual_inertial" type="rtk_visual_inertial_node" name="rtk_visual_inertial_node" output="screen" />
+
+
     <node name="rvizvisualisation" pkg="rviz" type="rviz" output="log" args="-d $(find rtk_visual_inertial)/config/rtk_visual_inertial_rviz_config.rviz" />
 </launch>

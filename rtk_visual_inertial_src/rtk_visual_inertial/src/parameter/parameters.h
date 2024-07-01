@@ -7,7 +7,6 @@
 #include <opencv2/opencv.hpp>
 #include <opencv2/core/eigen.hpp>
 
-
 using namespace std;
 //maximum duration for a avaliable imu pre-integration measurement
 #define IMUINTEGRATIONTIMEMAX 10.0
